@@ -15,6 +15,7 @@ library(tidyverse)
 library(ggplot2)
 library(GGally)
 library(PerformanceAnalytics)
+library(performance)
 ```
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(
@@ -52,38 +53,21 @@ cdi =
          beds_1000 = beds/pop*1000,  # ratio of beds per doctor
          pop_density = pop/area,  # how many people per square miles
          region = factor(region)) %>% 
-  dplyr::select(-id, -crimes,-area, -docs, -beds)
+  dplyr::select(-id, -crimes,-area, -docs, -beds, -totalinc)
 ```
 
-### Detect Outlier in 
-```{r}
-upper = quantile(cdi$crm_1000, 0.75)
-lower = quantile(cdi$crm_1000, 0.25)
-IQR = upper - lower
-cdi %>% 
-  filter(crm_1000 > upper + 1.5*IQR |  # there is no small outliers
-         crm_1000 < lower - 1.5*IQR) %>% 
-  dplyr::select(cty, state, crm_1000) %>%
-  mutate(standard = 1.5*IQR) %>% 
-  knitr::kable(digits = 2)
-
-# to get rid of extremely large outliers
-#cdi = 
-#  cdi %>% 
-#  filter(crm_1000 <= upper + 1.5*IQR)
-```
 
 ## Data Exploration
 ```{r}
 ## summary statistics, tentative, NOT FINAL
 sum_cdi = 
   cdi %>% 
-  dplyr::select(crm_1000, docs_1000, pop_density, pop, pop18, pop65, hsgrad, bagrad, poverty,unemp, pcincome, beds_1000)
+  dplyr::select(crm_1000, docs_1000, pop_density, pop, pop18, pop65, hsgrad, bagrad, poverty,unemp, pcincome,beds_1000)
 summary(sum_cdi)
 ```
 
 ```{r}
-mean_crm = mean(cdi$crm_1000)
+mean_crm = mean(sum_cdi$crm_1000)
 cdi_state = cdi %>% 
   group_by(state) %>% 
   summarize(crime_rate = mean(crm_1000)) %>% 
@@ -98,6 +82,7 @@ cdi_state %>%
   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust= 1),
         legend.position = "none")
 ```
+
 ### boxplot for each variable
 ```{r}
 par(mfrow=c(2,3))
@@ -107,32 +92,65 @@ boxplot(sum_cdi$pop_density,main='Population Density' )
 boxplot(sum_cdi$hsgrad, main='High School Graduate')
 boxplot(sum_cdi$bagrad, main='Bachelor Graduate')
 boxplot(sum_cdi$poverty, main='Poverty')
-```
-## Marginal correlation
-```{r}
-#cdi %>% ggplot(aes(x = pop_density, y = crm_1000))+ geom_point(alpha = 0.3)+geom_smooth(method = 'lm', se = TRUE, color = 'red')
+par(mfrow=c(2,3))
+boxplot(sum_cdi$unemp, main='Unemployment Rate')
+boxplot(sum_cdi$pcincome, main='Per capita Income')
+boxplot(sum_cdi$beds_1000, main='Beds Rate')
+boxplot(sum_cdi$pop, main='Population')
+boxplot(sum_cdi$pop18, main='PP aged 18-34')
+boxplot(sum_cdi$pop65, main='PP aged 65+')
 ```
 
 
-### correlation martix
+
+### Marginal Correlation and Correlation martix
 ```{r}
 corr_matrix = 
-  cdi %>% 
-  dplyr::select(-state, -region, -cty) %>% 
+  #cdi %>% 
+  #dplyr::select(-state, -region, -cty) %>% 
+  sum_cdi %>% 
   chart.Correlation(histogram = TRUE, method = "pearson")
 ```
+
 ### Correlation Heatmap
 ```{r}
 cdi %>% 
   dplyr::select(-state, -region, -cty) %>% 
+ # sum_cdi %>% 
   ggcorr(label=TRUE, hjust = 0.9, layout.exp = 2, label_size = 3, label_round = 2)
 #corrplot(cor(cdi_1), type = "upper", diag = FALSE)
 ```
+
+## Build Model
+
+### Backward Elimination
 ```{r}
-mult.fit = lm(crm_1000 ~ ., data = sum_cdi)
-summary(mult.fit)
-step(mult.fit, direction='backward')
+mult_fit = lm(crm_1000 ~ ., data = sum_cdi)
+summary(mult_fit)
+multi_back = step(mult_fit, direction='backward')
 ```
 
 
+### Forward Selection
+```{r}
+multi_forward = step(mult_fit, direction = 'forward')
+```
+
+### Both direction
+```{r}
+multi_both = step(mult_fit, direction = "both")
+```
+
+## Residuals vs. Fitted && QQ Plots
+```{r}
+
+```
+
+
+## Check Multicollinearity
+```{r}
+check_collinearity(multi_forward)
+check_collinearity(multi_back)
+check_collinearity(multi_both)
+```
 
