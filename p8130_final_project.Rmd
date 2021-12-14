@@ -1,0 +1,31 @@
+---
+title: "P8130 Final Project"
+output: pdf_document
+---
+
+```{r}
+library(tidyverse)
+library(pastecs)
+```
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Read in dataset
+```{r}
+cdi = read_csv("./cdi.csv") %>% 
+  janitor::clean_names()
+cdi
+```
+
+```{r}
+## no missing value
+cdi %>% 
+  select(everything()) %>%  
+  summarise_all(funs(sum(is.na(.))))
+```
+## Data Exploration
+```{r}
+#stat.desc(cdi)
+summary(cdi)
+```
