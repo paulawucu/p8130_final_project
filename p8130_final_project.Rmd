@@ -3,6 +3,12 @@ title: "P8130 Final Project"
 output: pdf_document
 ---
 
+### Abstract  
+### Introduction (brief context and background of the problem) 
+### Methods (data description and statistical methods)  
+### Results 
+### Conclusions/Discussion  
+
 ```{r}
 library(tidyverse)
 library(pastecs)
@@ -44,6 +50,7 @@ cdi
 ## summary statistics
 knitr::kable(summary(cdi))
 ```
+
 ```{r}
 cdi
 ```
