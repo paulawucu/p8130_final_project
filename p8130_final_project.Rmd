@@ -12,6 +12,7 @@ output: pdf_document
 
 ```{r, message = FALSE}
 library(tidyverse)
+library(PerformanceAnalytics)
 ```
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(
@@ -38,16 +39,26 @@ cdi %>%
   summarise_all(funs(sum(is.na(.)))) %>% 
   knitr::kable()
 ```
+
 ## Data cleaning
 ```{r}
+# some normalization for better comparison
 cdi = 
   cdi %>% 
   mutate(crm_1000 = crimes/pop*1000,  # as indicated by the project prompt
-         docs_rate_1000 = docs/pop*1000,  # every 1000 people how many doctors
-         beds_docs = beds/docs,
+         docs_1000 = docs/pop*1000,  # every 1000 people how many doctors
+         beds_1000 = beds/pop*1000,  # ratio of beds per doctor, indicating a 
+         pop_density = pop/area,  # how many people per square miles
          region = factor(region)) %>% 
-  select(-id, -cty, -crimes)
-cdi
+  select(-id, -cty, -crimes,-area, -docs, -beds)
+```
+## Data Exploration
+```{r}
+## summary statistics, tentative, NOT FINAL
+sum_cdi = 
+  cdi %>% 
+  select(crm_1000, docs_1000, pop_density, pop, pop18, pop65, hsgrad, bagrad, poverty,unemp, pcincome, beds_1000)
+summary(sum_cdi)
 ```
 
 ```{r}
@@ -63,18 +74,16 @@ cdi_state %>%
   ggplot(aes(x = state, y = crime_rate))+
   geom_hline(yintercept = mean_crm, color = "red")+
   geom_point(aes(color = low_high),size = 3)+
-  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust= 1))
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust= 1),
+        legend.position = "none")
 ```
 
 
-## Data Exploration
 ```{r}
-## summary statistics
-knitr::kable(summary(cdi))
-```
-
-```{r}
-cdi
+corr_matrix = 
+  cdi %>% 
+  select(-state, -region) %>% 
+  chart.Correlation(histogram = TRUE, method = "pearson")
 ```
 
 
