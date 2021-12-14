@@ -24,8 +24,29 @@ cdi %>%
   select(everything()) %>%  
   summarise_all(funs(sum(is.na(.))))
 ```
+## Data cleaning
+```{r}
+cdi = 
+  cdi %>% 
+  mutate(crm_1000 = crimes/pop*1000,  # as indicated by the project prompt
+         docs_rate_1000 = docs/pop*1000,  # every 1000 people how many doctors
+         beds_docs = beds/docs)
+cdi
+```
+
+```{r}
+
+```
+
+
 ## Data Exploration
 ```{r}
-#stat.desc(cdi)
-summary(cdi)
+## summary statistics
+knitr::kable(summary(cdi))
 ```
+```{r}
+cdi
+```
+
+
+
