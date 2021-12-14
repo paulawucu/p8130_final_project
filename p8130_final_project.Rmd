@@ -3,26 +3,33 @@ title: "P8130 Final Project"
 output: pdf_document
 ---
 
-```{r}
+```{r, message=FALSE, include=FALSE}
 library(tidyverse)
-library(pastecs)
 ```
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(
+	echo = TRUE,
+	warning = FALSE,
+	fig.width = 8, 
+  fig.height = 6,
+  out.width = "90%"
+)
+
+theme_set(theme_minimal() + theme(legend.position = "bottom"))
 ```
 
 ## Read in dataset
-```{r}
+```{r message=FALSE, warning=FALSE}
 cdi = read_csv("./cdi.csv") %>% 
   janitor::clean_names()
-cdi
 ```
 
 ```{r}
 ## no missing value
 cdi %>% 
   select(everything()) %>%  
-  summarise_all(funs(sum(is.na(.))))
+  summarise_all(funs(sum(is.na(.)))) %>% 
+  knitr::kable()
 ```
 ## Data cleaning
 ```{r}
@@ -30,12 +37,26 @@ cdi =
   cdi %>% 
   mutate(crm_1000 = crimes/pop*1000,  # as indicated by the project prompt
          docs_rate_1000 = docs/pop*1000,  # every 1000 people how many doctors
-         beds_docs = beds/docs)
+         beds_docs = beds/docs,
+         region = factor(region)) %>% 
+  select(-id, -cty, -crimes)
 cdi
 ```
 
 ```{r}
+mean_crm = mean(cdi$crm_1000)
+cdi_state = cdi %>% 
+  group_by(state) %>% 
+  summarize(crime_rate = mean(crm_1000)) %>% 
+  mutate(low_high = ifelse(crime_rate>mean_crm, TRUE,FALSE))
+  
 
+cdi_state %>% 
+  mutate(state = fct_reorder(state, crime_rate)) %>% 
+  ggplot(aes(x = state, y = crime_rate))+
+  geom_hline(yintercept = mean_crm, color = "red")+
+  geom_point(aes(color = low_high),size = 3)+
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust= 1))
 ```
 
 
