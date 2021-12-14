@@ -12,6 +12,8 @@ output: pdf_document
 
 ```{r, message = FALSE}
 library(tidyverse)
+library(ggplot2)
+library(GGally)
 library(PerformanceAnalytics)
 ```
 ```{r setup, include=FALSE}
@@ -47,17 +49,36 @@ cdi =
   cdi %>% 
   mutate(crm_1000 = crimes/pop*1000,  # as indicated by the project prompt
          docs_1000 = docs/pop*1000,  # every 1000 people how many doctors
-         beds_1000 = beds/pop*1000,  # ratio of beds per doctor, indicating a 
+         beds_1000 = beds/pop*1000,  # ratio of beds per doctor
          pop_density = pop/area,  # how many people per square miles
          region = factor(region)) %>% 
-  select(-id, -cty, -crimes,-area, -docs, -beds)
+  dplyr::select(-id, -crimes,-area, -docs, -beds)
 ```
+
+### Detect Outlier in 
+```{r}
+upper = quantile(cdi$crm_1000, 0.75)
+lower = quantile(cdi$crm_1000, 0.25)
+IQR = upper - lower
+cdi %>% 
+  filter(crm_1000 > upper + 1.5*IQR |  # there is no small outliers
+         crm_1000 < lower - 1.5*IQR) %>% 
+  dplyr::select(cty, state, crm_1000) %>%
+  mutate(standard = 1.5*IQR) %>% 
+  knitr::kable(digits = 2)
+
+# to get rid of extremely large outliers
+#cdi = 
+#  cdi %>% 
+#  filter(crm_1000 <= upper + 1.5*IQR)
+```
+
 ## Data Exploration
 ```{r}
 ## summary statistics, tentative, NOT FINAL
 sum_cdi = 
   cdi %>% 
-  select(crm_1000, docs_1000, pop_density, pop, pop18, pop65, hsgrad, bagrad, poverty,unemp, pcincome, beds_1000)
+  dplyr::select(crm_1000, docs_1000, pop_density, pop, pop18, pop65, hsgrad, bagrad, poverty,unemp, pcincome, beds_1000)
 summary(sum_cdi)
 ```
 
@@ -77,13 +98,40 @@ cdi_state %>%
   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust= 1),
         legend.position = "none")
 ```
+### boxplot for each variable
+```{r}
+par(mfrow=c(2,3))
+boxplot(sum_cdi$crm_1000, main='Crime Rate')
+boxplot(sum_cdi$docs_1000, main='Doctor Density')
+boxplot(sum_cdi$pop_density,main='Population Density' )
+boxplot(sum_cdi$hsgrad, main='High School Graduate')
+boxplot(sum_cdi$bagrad, main='Bachelor Graduate')
+boxplot(sum_cdi$poverty, main='Poverty')
+```
+## Marginal correlation
+```{r}
+#cdi %>% ggplot(aes(x = pop_density, y = crm_1000))+ geom_point(alpha = 0.3)+geom_smooth(method = 'lm', se = TRUE, color = 'red')
+```
 
 
+### correlation martix
 ```{r}
 corr_matrix = 
   cdi %>% 
-  select(-state, -region) %>% 
+  dplyr::select(-state, -region, -cty) %>% 
   chart.Correlation(histogram = TRUE, method = "pearson")
+```
+### Correlation Heatmap
+```{r}
+cdi %>% 
+  dplyr::select(-state, -region, -cty) %>% 
+  ggcorr(label=TRUE, hjust = 0.9, layout.exp = 2, label_size = 3, label_round = 2)
+#corrplot(cor(cdi_1), type = "upper", diag = FALSE)
+```
+```{r}
+mult.fit = lm(crm_1000 ~ ., data = sum_cdi)
+summary(mult.fit)
+step(mult.fit, direction='backward')
 ```
 
 
