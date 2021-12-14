@@ -154,3 +154,43 @@ check_collinearity(multi_back)
 check_collinearity(multi_both)
 ```
 
+
+
+
+## Model Diagnostics
+
+### Residuals VS Fitted/Predicted Values
+
+#### To detect unequal error varince and Outliers
+
+```{r}
+plot(model1, which = 1)
+```
+
+### QQ plot
+
+#### (non) normality of residuals and outliers
+
+```{r}
+plot(model1, which = 2)
+```
+
+### residuals vs leverage plot
+
+#### To identify influential cases
+
+```{r}
+
+plot(mult.fit1, which = 4)
+```
+
+### Box-Cox Transformation
+
+```{r}
+boxcox(model1, lambda = seq(-3, 3, by = 0.25))
+```
+
+
+
+## Vairable Selection
+
