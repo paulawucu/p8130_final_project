@@ -16,6 +16,7 @@ library(ggplot2)
 library(GGally)
 library(PerformanceAnalytics)
 library(performance)
+library(MASS)
 ```
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(
@@ -38,7 +39,7 @@ cdi = read_csv("./cdi.csv") %>%
 ```{r}
 ## no missing value
 cdi %>% 
-  select(everything()) %>%  
+  dplyr::select(everything()) %>%  
   summarise_all(funs(sum(is.na(.)))) %>% 
   knitr::kable()
 ```
@@ -53,7 +54,7 @@ cdi =
          beds_1000 = beds/pop*1000,  # ratio of beds per doctor
          pop_density = pop/area,  # how many people per square miles
          region = factor(region)) %>% 
-  dplyr::select(-id, -crimes,-area, -docs, -beds, -totalinc)
+  dplyr::select(-id, -crimes,-area, -docs, -beds, -totalinc, -pop)
 ```
 
 
@@ -62,7 +63,7 @@ cdi =
 ## summary statistics, tentative, NOT FINAL
 sum_cdi = 
   cdi %>% 
-  dplyr::select(crm_1000, docs_1000, pop_density, pop, pop18, pop65, hsgrad, bagrad, poverty,unemp, pcincome,beds_1000)
+  dplyr::select(-c(cty, state))
 summary(sum_cdi)
 ```
 
@@ -96,7 +97,6 @@ par(mfrow=c(2,3))
 boxplot(sum_cdi$unemp, main='Unemployment Rate')
 boxplot(sum_cdi$pcincome, main='Per capita Income')
 boxplot(sum_cdi$beds_1000, main='Beds Rate')
-boxplot(sum_cdi$pop, main='Population')
 boxplot(sum_cdi$pop18, main='PP aged 18-34')
 boxplot(sum_cdi$pop65, main='PP aged 65+')
 ```
@@ -106,21 +106,20 @@ boxplot(sum_cdi$pop65, main='PP aged 65+')
 ### Marginal Correlation and Correlation martix
 ```{r}
 corr_matrix = 
-  #cdi %>% 
-  #dplyr::select(-state, -region, -cty) %>% 
-  sum_cdi %>% 
+  cdi %>% 
+  dplyr::select(-state, -region, -cty) %>% 
+  #sum_cdi %>% 
   chart.Correlation(histogram = TRUE, method = "pearson")
 ```
 
 ### Correlation Heatmap
 ```{r}
 cdi %>% 
-  dplyr::select(-state, -region, -cty) %>% 
+  dplyr::select(-state, -cty) %>% 
  # sum_cdi %>% 
   ggcorr(label=TRUE, hjust = 0.9, layout.exp = 2, label_size = 3, label_round = 2)
 #corrplot(cor(cdi_1), type = "upper", diag = FALSE)
 ```
-
 ## Build Model
 
 ### Backward Elimination
@@ -164,7 +163,11 @@ check_collinearity(multi_both)
 #### To detect unequal error varince and Outliers
 
 ```{r}
-plot(model1, which = 1)
+plot(multi_back, which = 1)
+plot(multi_forward, which = 1)
+plot(multi_both, which = 1)
+#library(olsrr)
+#olsrr::ols_plot_resid_fit(multi_forward)
 ```
 
 ### QQ plot
@@ -172,7 +175,9 @@ plot(model1, which = 1)
 #### (non) normality of residuals and outliers
 
 ```{r}
-plot(model1, which = 2)
+plot(multi_back, which = 2)
+plot(multi_forward, which = 2)
+plot(multi_both, which = 2)
 ```
 
 ### residuals vs leverage plot
@@ -180,17 +185,41 @@ plot(model1, which = 2)
 #### To identify influential cases
 
 ```{r}
-
-plot(mult.fit1, which = 4)
+plot(multi_back, which = 4)
+plot(multi_forward, which = 4)
+plot(multi_both, which = 4)
 ```
 
 ### Box-Cox Transformation
 
 ```{r}
-boxcox(model1, lambda = seq(-3, 3, by = 0.25))
+boxcox(multi_back, lambda = seq(-3, 3, by = 0.25))
+boxcox(multi_forward, lambda = seq(-3, 3, by = 0.25))
+boxcox(multi_both, lambda = seq(-3, 3, by = 0.25))
 ```
 
+### Checking Outliers and Influential Points
+```{r}
+sum_cdi_wo = sum_cdi[-c(6,53,418),]
+# for backward
+without_back = lm(crm_1000 ~ pop18 + hsgrad + bagrad + poverty + pcincome + region + 
+    beds_1000 + pop_density, data = sum_cdi_wo)
+with_back = lm(crm_1000 ~ pop18 + hsgrad + bagrad + poverty + pcincome + region + 
+    beds_1000 + pop_density, data = sum_cdi)
+summary(with_back); summary(without_back)
 
+# for forward
+without_for = lm(crm_1000 ~ pop18 + pop65 + hsgrad + bagrad + poverty + unemp + 
+    pcincome + region + docs_1000 + beds_1000 + pop_density, data = sum_cdi_wo)
+with_for = lm(crm_1000 ~ pop18 + pop65 + hsgrad + bagrad + poverty + unemp + 
+    pcincome + region + docs_1000 + beds_1000 + pop_density, data = sum_cdi)
+summary(with_for); summary(without_for)
 
-## Vairable Selection
+# for both 
+without_both = lm(crm_1000 ~ pop18 + hsgrad + bagrad + poverty + pcincome + region + 
+    beds_1000 + pop_density, data = sum_cdi_wo)
+with_both = lm(crm_1000 ~ pop18 + hsgrad + bagrad + poverty + pcincome + region + 
+    beds_1000 + pop_density, data = sum_cdi)
+summary(with_both); summary(without_both)
+```
 
