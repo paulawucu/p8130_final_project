@@ -1,0 +1,62 @@
+---
+title: "model_selection"
+output: html_document
+---
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
+
+library(tidyverse)
+library(MASS) # boxcox
+library(performance) # vif
+library(corrplot)
+library(leaps)
+library(caret)
+```
+
+
+### Residuals VS Fitted/Predicted Values
+
+#### To detect unequal error varince and Outliers
+
+```{r}
+plot(model1, which = 1)
+```
+
+### QQ plot
+
+#### (non) normality of residuals and outliers
+
+```{r}
+plot(model1, which = 2)
+```
+
+### residuals vs leverage plot
+
+#### To identify influential cases
+
+```{r}
+plot(model1, which = 4)
+```
+
+### Validation
+
+```{r}
+
+set.seed(1)
+# Use 5-fold validation and create the training sets
+train = trainControl(method = "cv", number = 5)
+
+# Fit the 4-variables model that we discussed in previous lectures
+model_caret = train(Lnsurvival ~ Enzyme + Progindex + Alcheav + Bloodclot,
+                   data = surg,
+                   trControl = train,
+                   method = 'lm',
+                   na.action = na.pass)
+
+model_caret$finalModel
+print(model_caret)
+
+```
+
+```
+
