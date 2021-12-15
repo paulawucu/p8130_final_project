@@ -1,0 +1,223 @@
+---
+title: "P8130 Final Project"
+output: pdf_document
+---
+
+
+### Abstract  
+### Introduction (brief context and background of the problem) 
+### Methods (data description and statistical methods)  
+### Results 
+### Conclusions/Discussion  
+
+```{r, message = FALSE}
+library(tidyverse)
+library(ggplot2)
+library(GGally)
+library(PerformanceAnalytics)
+library(performance)
+library(MASS)
+```
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+	echo = TRUE,
+	warning = FALSE,
+	fig.width = 8, 
+  fig.height = 6,
+  out.width = "90%"
+)
+
+theme_set(theme_minimal() + theme(legend.position = "bottom"))
+```
+
+## Read in dataset
+```{r message=FALSE, warning=FALSE}
+cdi = read_csv("./cdi.csv") %>% 
+  janitor::clean_names()
+```
+
+```{r}
+## no missing value
+cdi %>% 
+  dplyr::select(everything()) %>%  
+  summarise_all(funs(sum(is.na(.)))) %>% 
+  knitr::kable()
+```
+
+## Data cleaning
+```{r}
+# some normalization for better comparison
+cdi = 
+  cdi %>% 
+  mutate(crm_1000 = crimes/pop*1000,  # as indicated by the project prompt
+         docs_1000 = docs/pop*1000,  # every 1000 people how many doctors
+         beds_1000 = beds/pop*1000, 
+         pop_density = pop/area,  # how many people per square miles
+         northeast = ifelse(region==1, 1, 0),
+         northcentral = ifelse(region==2, 1, 0),
+         south = ifelse(region==3, 1, 0)) %>% 
+  dplyr::select(-id, -crimes,-area, -docs, -beds, -totalinc, -region)
+```
+
+
+## Data Exploration
+```{r}
+## summary statistics, tentative, NOT FINAL
+sum_cdi = 
+  cdi %>% 
+  dplyr::select(-c(cty, state))
+summary(sum_cdi)
+```
+
+```{r}
+mean_crm = mean(sum_cdi$crm_1000)
+cdi_state = cdi %>% 
+  group_by(state) %>% 
+  summarize(crime_rate = mean(crm_1000)) %>% 
+  mutate(low_high = ifelse(crime_rate>mean_crm, TRUE,FALSE))
+  
+
+cdi_state %>% 
+  mutate(state = fct_reorder(state, crime_rate)) %>% 
+  ggplot(aes(x = state, y = crime_rate))+
+  geom_hline(yintercept = mean_crm, color = "red")+
+  geom_point(aes(color = low_high),size = 3)+
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust= 1),
+        legend.position = "none")
+```
+
+### boxplot for each variable
+```{r}
+par(mfrow=c(2,3))
+boxplot(sum_cdi$crm_1000, main='Crime Rate')
+boxplot(sum_cdi$docs_1000, main='Doctor Density')
+boxplot(sum_cdi$pop_density,main='Population Density' )
+boxplot(sum_cdi$hsgrad, main='High School Graduate')
+boxplot(sum_cdi$bagrad, main='Bachelor Graduate')
+boxplot(sum_cdi$poverty, main='Poverty')
+par(mfrow=c(2,3))
+boxplot(sum_cdi$unemp, main='Unemployment Rate')
+boxplot(sum_cdi$pcincome, main='Per capita Income')
+boxplot(sum_cdi$beds_1000, main='Beds Rate')
+boxplot(sum_cdi$pop, main='Population')
+boxplot(sum_cdi$pop18, main='PP aged 18-34')
+boxplot(sum_cdi$pop65, main='PP aged 65+')
+```
+
+
+
+### Marginal Correlation and Correlation martix
+```{r}
+corr_matrix = 
+  cdi %>% 
+  dplyr::select(-state, -cty, -northeast, -northcentral, -south) %>% 
+  #sum_cdi %>% 
+  chart.Correlation(histogram = TRUE, method = "pearson")
+```
+
+### Correlation Heatmap
+```{r}
+cdi %>% 
+  dplyr::select(-state, -cty) %>% 
+  dplyr::select(crm_1000, everything()) %>% 
+  ggcorr(label=TRUE, hjust = 0.9, layout.exp = 2, label_size = 3, label_round = 2)
+#corrplot(cor(cdi_1), type = "upper", diag = FALSE)
+```
+## Build Model
+```{r}
+mult_fit = lm(crm_1000 ~ ., data = sum_cdi)
+summary(mult_fit)
+```
+
+some model diagnostics
+```{r}
+plot(mult_fit, which = 1)
+plot(mult_fit, which = 4)
+bc_model = boxcox(mult_fit, lambda = seq(-3, 3, by = 0.25))
+```
+
+```{r}
+lamb = bc_model$x[which.max(bc_model$y)]
+lamb
+```
+
+~0.5, thus applied square root to the Y
+```{r}
+sum_cdi_mod = sum_cdi[-c(1,6),]
+full_trans_fit = lm(sqrt(crm_1000) ~.,data = sum_cdi_mod)
+summary(full_trans_fit)
+check_collinearity(full_trans_fit)
+```
+
+
+### Backward Elimination
+```{r}
+multi_back = step(full_trans_fit, direction='backward')
+multi_back
+```
+sqrt(crm_1000) ~ pop + pop18 + hsgrad + bagrad + poverty + unemp+
+    pcincome + beds_1000 + pop_density + northeast + northcentral + 
+    south, data = sum_cdi
+```{r}
+plot(multi_back, which = 1)
+plot(multi_back, which = 4)
+back_without = sum_cdi[-c(1,213,403),]
+
+with = lm(sqrt(crm_1000) ~ pop + pop18 + hsgrad + bagrad + poverty + unemp+
+    pcincome + beds_1000 + pop_density + northeast + northcentral + 
+    south, data = sum_cdi) 
+without = lm(sqrt(crm_1000) ~ pop + pop18 + hsgrad + bagrad + poverty + unemp+
+    pcincome + beds_1000 + pop_density + northeast + northcentral + 
+    south, data = back_without)
+summary(with); summary(without)
+check_collinearity(without)
+```
+
+
+### Forward Selection
+```{r}
+multi_forward = step(full_trans_fit, direction = 'forward')
+multi_forward
+```
+sqrt(crm_1000) ~ pop + pop18 + pop65 + hsgrad + 
+    bagrad + poverty + unemp + pcincome + docs_1000 + beds_1000 + 
+    pop_density + northeast + northcentral + south, data = sum_cdi_mod
+```{r}
+plot(multi_forward, which = 1)
+plot(multi_forward, which = 4)
+forward_without = sum_cdi[-c(1,416,403),]
+
+with_for = lm(sqrt(crm_1000) ~ pop + pop18 + pop65 + hsgrad + 
+    bagrad + poverty + unemp + pcincome + docs_1000 + beds_1000 + 
+    pop_density + northeast + northcentral + south, data = sum_cdi_mod) 
+without_for = lm(sqrt(crm_1000) ~ pop + pop18 + pop65 + hsgrad + 
+    bagrad + poverty + unemp + pcincome + docs_1000 + beds_1000 + 
+    pop_density + northeast + northcentral + south,data = forward_without)
+summary(with_for); summary(without_for)
+check_collinearity(without_for)
+```
+
+
+### Both direction
+```{r}
+multi_both = step(full_trans_fit, direction = "both")
+multi_both
+```
+
+sqrt(crm_1000) ~ pop + pop18 + hsgrad + bagrad + 
+    poverty + unemp + pcincome + beds_1000 + pop_density + northeast + 
+    northcentral + south, data = sum_cdi_mod
+```{r}
+plot(multi_both, which = 1)
+plot(multi_both, which = 4)
+both_without = sum_cdi[-c(1,213,403),]
+
+with_both = lm(sqrt(crm_1000) ~ pop + pop18 + hsgrad + bagrad + 
+    poverty + unemp + pcincome + beds_1000 + pop_density + northeast + 
+    northcentral + south, data = sum_cdi_mod) 
+without_both = lm(sqrt(crm_1000) ~ pop + pop18 + hsgrad + bagrad + 
+    poverty + unemp + pcincome + beds_1000 + pop_density + northeast + 
+    northcentral + south, data = both_without)
+summary(with_both); summary(without_both)
+check_collinearity(without_both)
+```
