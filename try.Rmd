@@ -19,6 +19,9 @@ library(GGally)
 library(PerformanceAnalytics)
 library(performance)
 library(MASS)
+library(leaps)
+library(modelr)
+library(olsrr)
 ```
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(
@@ -126,7 +129,9 @@ cdi %>%
   dplyr::select(crm_1000, everything()) %>% 
   ggcorr(label=TRUE, hjust = 0.9, layout.exp = 2, label_size = 3, label_round = 2)
 ```
+
 ## Build Model
+
 ### Full Model
 Let's start with the full model
 ```{r}
@@ -168,28 +173,14 @@ We will just use the transformed models for the further model fits
 multi_back = step(full_trans_fit, direction='backward')
 multi_back
 ```
-sqrt(crm_1000) ~ pop + pop18 + hsgrad + bagrad + poverty + unemp+ pcincome + beds_1000 + pop_density + northeast + northcentral + south, data = sum_cdi
+sqrt(crm_1000) ~ pop + pop18 + hsgrad + bagrad + poverty + unemp+ pcincome + beds_1000 + pop_density + northeast + northcentral + south, data = sum_cdi_mod
 
 
 Model Diagnostic
 ```{r}
-par(mfrow = c(2,1))
-plot(multi_back, which = 1)
-plot(multi_back, which = 4)
-```
-
-```{r}
-# get rid of the outliers first
-back_without = sum_cdi[-c(1),]
-
-with_back = lm(sqrt(crm_1000) ~ pop + pop18 + hsgrad + bagrad + poverty + unemp+
-    pcincome + beds_1000 + pop_density + northeast + northcentral + 
-    south, data = sum_cdi) 
-without_back = lm(sqrt(crm_1000) ~ pop + pop18 + hsgrad + bagrad + poverty + unemp+
-    pcincome + beds_1000 + pop_density + northeast + northcentral + 
-    south, data = back_without)
-summary(with_back); summary(without_back)
-check_collinearity(without_back)
+par(mfrow = c(2,2))
+plot(multi_back)
+check_collinearity(multi_back)
 ```
 
 
@@ -202,22 +193,12 @@ sqrt(crm_1000) ~ pop + pop18 + pop65 + hsgrad + bagrad + poverty + unemp + pcinc
 
 Model diagnostic
 ```{r}
-par(mfrow = c(2,1))
-plot(multi_forward, which = 1)
-plot(multi_forward, which = 4)
+par(mfrow = c(2,2))
+plot(multi_forward)
+check_collinearity(multi_forward)
 ```
 
-```{r}
-forward_without = sum_cdi[-c(1,416),]
-with_for = lm(sqrt(crm_1000) ~ pop + pop18 + pop65 + hsgrad + 
-    bagrad + poverty + unemp + pcincome + docs_1000 + beds_1000 + 
-    pop_density + northeast + northcentral + south, data = sum_cdi_mod) 
-without_for = lm(sqrt(crm_1000) ~ pop + pop18 + pop65 + hsgrad + 
-    bagrad + poverty + unemp + pcincome + docs_1000 + beds_1000 + 
-    pop_density + northeast + northcentral + south,data = forward_without)
-summary(with_for); summary(without_for)
-check_collinearity(without_for)
-```
+Forward selection generated the same result as the full model, thus we will not consider it from now on. 
 
 
 ### Both direction
@@ -227,23 +208,152 @@ multi_both
 ```
 
 sqrt(crm_1000) ~ pop + pop18 + hsgrad + bagrad + poverty + unemp + pcincome + beds_1000 + pop_density + northeast + northcentral + south, data = sum_cdi_mod
+
+the same model as the backward selection, we will not focus on this model from now on
     
+
+### Interaction Model
+
+Choose backward selection-generated model as the basis since it's with the highest adjusted r-squared. The choice of interaction is somewhat arbitrary, mainly based on the correlation heatmap and also to avoid high collinearity. After a few tries, we added two more interaction terms as the following
+```{r}
+multi_interact = lm(sqrt(crm_1000) ~ pop + pop18 + pop65 + hsgrad + bagrad + poverty + unemp 
+                    + pcincome + docs_1000 + beds_1000 + pop_density + northeast + northcentral 
+                    + south + pop*bagrad, data = sum_cdi_mod)
+summary(multi_interact)
+```
+
 Model diagnostic
 ```{r}
-par(mfrow = c(2,1))
-plot(multi_both, which = 1)
-plot(multi_both, which = 4)
+par(mfrow = c(2,2))
+plot(multi_interact)
+check_collinearity(multi_interact)
+```
+
+## Test based procedures
+
+### Model diagnostics
+```{r}
+b = regsubsets(sqrt(crm_1000)~ ., data = sum_cdi_mod, nvmax = 15)
+rs = summary(b)
+
+# plot of Cp and Adj-R2 as functions of parameters
+par(mfrow=c(1,2))
+
+plot(2:15, rs$cp, xlab="No of parameters", ylab="Cp Statistic")
+abline(0,1)
+
+plot(2:15, rs$adjr2, xlab="No of parameters", ylab="Adj R2")
+```
+
+
+Adjusted R-squared based model
+```{r}
+models_generator = function(predict_num, models){
+  predict_intent = summary(models)$which[predict_num, -1]
+  predict = names(which(predict_intent == TRUE))
+  predictors = paste(predict, collapse = " + ")
+  text = paste0("sqrt(crm_1000) ~ ", predictors)
+  return(text)
+}
+adjr2_num = which.max(rs$adjr2)
+models_generator(adjr2_num, b)
+```
+
+Cp based model 
+```{r}
+cp_num = which.min(rs$cp)
+models_generator(cp_num, b)
+```
+
+Fit both models
+```{r}
+# r-adj square
+multi_r_adj = lm(sqrt(crm_1000) ~ pop + pop18 + hsgrad + bagrad + poverty + unemp + pcincome + beds_1000 + pop_density + northeast + northcentral + south, data = sum_cdi_mod)
+summary(multi_r_adj)
 ```
 
 ```{r}
-both_without = sum_cdi[-c(1),]
-
-with_both = lm(sqrt(crm_1000) ~ pop + pop18 + hsgrad + bagrad + 
-    poverty + unemp + pcincome + beds_1000 + pop_density + northeast + 
-    northcentral + south, data = sum_cdi_mod) 
-without_both = lm(sqrt(crm_1000) ~ pop + pop18 + hsgrad + bagrad + 
-    poverty + unemp + pcincome + beds_1000 + pop_density + northeast + 
-    northcentral + south, data = both_without)
-summary(with_both); summary(without_both)
-check_collinearity(without_both)
+# cp value based
+multi_cp = lm(sqrt(crm_1000) ~ pop + pop18 + bagrad + poverty + pcincome + beds_1000 + pop_density + northeast + northcentral, data = sum_cdi_mod)
+summary(multi_cp)
 ```
+
+
+```{r}
+a_row = function(model_data){
+  model_data %>% 
+  broom::glance() %>% 
+  dplyr::select(adj.r.squared, AIC, BIC)
+}
+add_in = rbind(
+  ols_mallows_cp(full_trans_fit,full_trans_fit),
+  ols_mallows_cp(multi_back,full_trans_fit),
+  ols_mallows_cp(multi_interact,full_trans_fit),
+  ols_mallows_cp(multi_r_adj,full_trans_fit),
+  ols_mallows_cp(multi_cp,full_trans_fit))
+rbind(a_row(full_trans_fit),
+      a_row(multi_back),
+      a_row(multi_interact),
+      a_row(multi_r_adj),
+      a_row(multi_cp))%>% 
+  mutate(model = c("Full model", "Backward Selection", "Interaction", "Adj R Based", "Cp Value Based"),
+         cp = add_in) %>% 
+  relocate(model)
+
+```
+
+## Cross Validation
+```{r}
+set.seed(1)
+train = sample_n(sum_cdi_mod, 306)  # 70:30 train:test split
+test = anti_join(sum_cdi_mod, train)
+  
+cv_df = 
+  crossv_mc(sum_cdi_mod,1000) %>%   # 1000 times of cross validation
+  mutate(
+    train = map(train, as_tibble),
+    test = map(test, as_tibble)
+  )
+cv_df = 
+  cv_df %>% 
+  mutate(
+    full_fit = map(.x = train, ~lm(sqrt(crm_1000) ~., data = .x)),
+    back_fit = map(.x = train, ~lm(sqrt(crm_1000) ~ pop + pop18 + hsgrad + bagrad + poverty + 
+                                     unemp+ pcincome + beds_1000 + pop_density + northeast + 
+                                     northcentral + south, data = .x)),
+    interact_fit = map(.x = train, ~lm(sqrt(crm_1000) ~ pop + pop18 + pop65 + hsgrad + bagrad + poverty 
+                                       + unemp + pcincome + docs_1000 + beds_1000 + pop_density 
+                                       + northeast + northcentral + south + pop*bagrad + bagrad*pcincome, data = .x)),
+    adj_fit = map(.x = train, ~lm(sqrt(crm_1000) ~ pop + pop18 + hsgrad + bagrad + poverty + unemp +
+                                    pcincome + beds_1000 + pop_density + northeast + northcentral + south, data = .x)),
+    cp_fit = map(.x = train, ~lm(sqrt(crm_1000) ~ pop + pop18 + bagrad + poverty + pcincome +
+                                   beds_1000 + pop_density + northeast + northcentral, data = .x))
+  ) %>% 
+  mutate(
+    rmse_full = map2_dbl(.x = full_fit, .y = test, ~rmse(model = .x, data = .y)),
+    rmse_back = map2_dbl(.x = back_fit, .y = test, ~rmse(model = .x, data = .y)),
+    rmse_interact = map2_dbl(.x = interact_fit, .y = test, ~rmse(model = .x, data = .y)),
+    rmse_adj = map2_dbl(.x = adj_fit, .y = test, ~rmse(model = .x, data = .y)),
+    rmse_cp = map2_dbl(.x = cp_fit, .y = test, ~rmse(model = .x, data = .y)),
+  )
+```
+
+```{r}
+cv_df %>% 
+  dplyr::select(starts_with("rmse")) %>% 
+  pivot_longer(
+    everything(),
+    names_to = "model",
+    values_to = "rmse",
+    names_prefix = "rmse_"
+  ) %>% 
+  #mutate(model = fct_relevel(model, "my", "f_model", "s_model")) %>% 
+  ggplot(aes(x = model, y = rmse,))+
+  geom_violin(aes(fill = model), alpha = 0.5)+
+ # scale_x_discrete(labels = c("My Model", "First Model", "Second Model"))+
+  ggtitle("RMSE Distribution Plots") +
+  theme(plot.title = element_text(hjust = 0.5),
+        legend.position = "none")  +  # the display of legends is redundant
+  labs(y = "RMSE", x = "Models")
+```
+
