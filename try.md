@@ -29,7 +29,26 @@ library(olsrr)
 ``` r
 cdi = read_csv("./cdi.csv") %>% 
   janitor::clean_names()
+cdi %>% 
+  group_by(cty, state)
 ```
+
+    ## # A tibble: 440 × 17
+    ## # Groups:   cty, state [438]
+    ##       id cty     state  area    pop pop18 pop65  docs  beds crimes hsgrad bagrad
+    ##    <dbl> <chr>   <chr> <dbl>  <dbl> <dbl> <dbl> <dbl> <dbl>  <dbl>  <dbl>  <dbl>
+    ##  1     1 Los_An… CA     4060 8.86e6  32.1   9.7 23677 27700 688936   70     22.3
+    ##  2     2 Cook    IL      946 5.11e6  29.2  12.4 15153 21550 436936   73.4   22.8
+    ##  3     3 Harris  TX     1729 2.82e6  31.3   7.1  7553 12449 253526   74.9   25.4
+    ##  4     4 San_Di… CA     4205 2.50e6  33.5  10.9  5905  6179 173821   81.9   25.3
+    ##  5     5 Orange  CA      790 2.41e6  32.6   9.2  6062  6369 144524   81.2   27.8
+    ##  6     6 Kings   NY       71 2.30e6  28.3  12.4  4861  8942 680966   63.7   16.6
+    ##  7     7 Marico… AZ     9204 2.12e6  29.2  12.5  4320  6104 177593   81.5   22.1
+    ##  8     8 Wayne   MI      614 2.11e6  27.4  12.5  3823  9490 193978   70     13.7
+    ##  9     9 Dade    FL     1945 1.94e6  27.1  13.9  6274  8840 244725   65     18.8
+    ## 10    10 Dallas  TX      880 1.85e6  32.6   8.2  4718  6934 214258   77.1   26.3
+    ## # … with 430 more rows, and 5 more variables: poverty <dbl>, unemp <dbl>,
+    ## #   pcincome <dbl>, totalinc <dbl>, region <dbl>
 
 ``` r
 ## no missing value
@@ -190,7 +209,9 @@ corr_matrix =
 cdi %>% 
   dplyr::select(-state, -cty, -northeast, -northcentral, -south) %>% 
   dplyr::select(crm_1000, everything()) %>% 
-  ggcorr(label=TRUE, hjust = 0.9, layout.exp = 2, label_size = 3, label_round = 2)
+  ggcorr(label=TRUE, hjust = 0.9, layout.exp = 2, label_size = 3, label_round = 2) +
+  ggtitle("Correlation Heatmap") +
+  theme(plot.title = element_text(hjust = 0.5))
 ```
 
 <img src="try_files/figure-gfm/unnamed-chunk-10-1.png" width="90%" />
@@ -897,17 +918,17 @@ rbind(a_row(full_trans_fit),
   mutate(model = c("Full model", "Backward Selection", "Interaction", "Adj R Based", "Cp Value Based"),
          cp = add_in,
          rmse = rmse_add) %>% 
-  relocate(model)
+  relocate(model) %>% 
+  knitr::kable()
 ```
 
-    ## # A tibble: 5 × 6
-    ##   model              adj.r.squared   AIC   BIC cp[,1] rmse[,1]
-    ##   <chr>                      <dbl> <dbl> <dbl>  <dbl>    <dbl>
-    ## 1 Full model                 0.536 1375. 1441.  15        1.12
-    ## 2 Backward Selection         0.538 1371. 1429.  11.1      1.12
-    ## 3 Interaction                0.546 1365. 1426.   5.33     1.11
-    ## 4 Adj R Based                0.538 1371. 1429.  11.1      1.12
-    ## 5 Cp Value Based             0.536 1370. 1415.   9.98     1.13
+| model              | adj.r.squared |      AIC |      BIC |        cp |     rmse |
+|:-------------------|--------------:|---------:|---------:|----------:|---------:|
+| Full model         |     0.5361497 | 1375.258 | 1440.573 | 15.000000 | 1.121268 |
+| Backward Selection |     0.5382212 | 1371.363 | 1428.514 | 11.102026 | 1.121404 |
+| Interaction        |     0.5456398 | 1365.238 | 1426.471 |  5.325220 | 1.111050 |
+| Adj R Based        |     0.5382212 | 1371.363 | 1428.514 | 11.102026 | 1.121404 |
+| Cp Value Based     |     0.5361687 | 1370.387 | 1415.291 |  9.982508 | 1.127853 |
 
 ## Cross Validation
 
