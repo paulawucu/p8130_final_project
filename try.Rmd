@@ -136,13 +136,13 @@ summary(mult_fit)
 
 Model diagnostics of the full model
 ```{r}
-plot(mult_fit, which = 1)
-plot(mult_fit, which = 4)
-bc_model = boxcox(mult_fit, lambda = seq(-3, 3, by = 0.25))
+par(mfrow=c(2,2))
+plot(mult_fit)
 ```
 
 ```{r}
 # get the lambda for the transformation
+bc_model = boxcox(mult_fit, lambda = seq(-3, 3, by = 0.25))
 lamb = bc_model$x[which.max(bc_model$y)]
 lamb
 ```
@@ -150,35 +150,46 @@ lamb
 ~0.5, thus we applied square root to the Y. Also we get rid of the influential points. The full model is the basis of other models, thus we choose to filter the outliers out at first.
 ```{r}
 sum_cdi_mod = sum_cdi[-c(1,6),]  # filter out outlier and store it as the new dataset
+full_trans_fit = lm(sqrt(crm_1000) ~.,data = sum_cdi_mod)  # refit
+```
 
+```{r}
 # check again
-full_trans_fit = lm(sqrt(crm_1000) ~.,data = sum_cdi_mod)
+par(mfrow=c(2,2))
+plot(full_trans_fit)
 summary(full_trans_fit)
 check_collinearity(full_trans_fit)
 ```
 
+We will just use the transformed models for the further model fits
 
 ### Backward Elimination
 ```{r}
 multi_back = step(full_trans_fit, direction='backward')
 multi_back
 ```
-sqrt(crm_1000) ~ pop + pop18 + hsgrad + bagrad + poverty + unemp+
-    pcincome + beds_1000 + pop_density + northeast + northcentral + 
-    south, data = sum_cdi
+sqrt(crm_1000) ~ pop + pop18 + hsgrad + bagrad + poverty + unemp+ pcincome + beds_1000 + pop_density + northeast + northcentral + south, data = sum_cdi
+
+
+Model Diagnostic
 ```{r}
+par(mfrow = c(2,1))
 plot(multi_back, which = 1)
 plot(multi_back, which = 4)
-back_without = sum_cdi[-c(1,213,403),]
+```
 
-with = lm(sqrt(crm_1000) ~ pop + pop18 + hsgrad + bagrad + poverty + unemp+
+```{r}
+# get rid of the outliers first
+back_without = sum_cdi[-c(1),]
+
+with_back = lm(sqrt(crm_1000) ~ pop + pop18 + hsgrad + bagrad + poverty + unemp+
     pcincome + beds_1000 + pop_density + northeast + northcentral + 
     south, data = sum_cdi) 
-without = lm(sqrt(crm_1000) ~ pop + pop18 + hsgrad + bagrad + poverty + unemp+
+without_back = lm(sqrt(crm_1000) ~ pop + pop18 + hsgrad + bagrad + poverty + unemp+
     pcincome + beds_1000 + pop_density + northeast + northcentral + 
     south, data = back_without)
-summary(with); summary(without)
-check_collinearity(without)
+summary(with_back); summary(without_back)
+check_collinearity(without_back)
 ```
 
 
@@ -187,14 +198,17 @@ check_collinearity(without)
 multi_forward = step(full_trans_fit, direction = 'forward')
 multi_forward
 ```
-sqrt(crm_1000) ~ pop + pop18 + pop65 + hsgrad + 
-    bagrad + poverty + unemp + pcincome + docs_1000 + beds_1000 + 
-    pop_density + northeast + northcentral + south, data = sum_cdi_mod
+sqrt(crm_1000) ~ pop + pop18 + pop65 + hsgrad + bagrad + poverty + unemp + pcincome + docs_1000 + beds_1000 + pop_density + northeast + northcentral + south, data = sum_cdi_mod
+
+Model diagnostic
 ```{r}
+par(mfrow = c(2,1))
 plot(multi_forward, which = 1)
 plot(multi_forward, which = 4)
-forward_without = sum_cdi[-c(1,416,403),]
+```
 
+```{r}
+forward_without = sum_cdi[-c(1,416),]
 with_for = lm(sqrt(crm_1000) ~ pop + pop18 + pop65 + hsgrad + 
     bagrad + poverty + unemp + pcincome + docs_1000 + beds_1000 + 
     pop_density + northeast + northcentral + south, data = sum_cdi_mod) 
@@ -212,13 +226,17 @@ multi_both = step(full_trans_fit, direction = "both")
 multi_both
 ```
 
-sqrt(crm_1000) ~ pop + pop18 + hsgrad + bagrad + 
-    poverty + unemp + pcincome + beds_1000 + pop_density + northeast + 
-    northcentral + south, data = sum_cdi_mod
+sqrt(crm_1000) ~ pop + pop18 + hsgrad + bagrad + poverty + unemp + pcincome + beds_1000 + pop_density + northeast + northcentral + south, data = sum_cdi_mod
+    
+Model diagnostic
 ```{r}
+par(mfrow = c(2,1))
 plot(multi_both, which = 1)
 plot(multi_both, which = 4)
-both_without = sum_cdi[-c(1,213,403),]
+```
+
+```{r}
+both_without = sum_cdi[-c(1),]
 
 with_both = lm(sqrt(crm_1000) ~ pop + pop18 + hsgrad + bagrad + 
     poverty + unemp + pcincome + beds_1000 + pop_density + northeast + 
