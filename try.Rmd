@@ -109,7 +109,23 @@ boxplot(sum_cdi$pop18, main='PP aged 18-34')
 boxplot(sum_cdi$pop65, main='PP aged 65+')
 ```
 
-
+### Histogram for each variable
+```{r}
+par(mfrow=c(2,3))
+hist(sum_cdi$crm_1000, main='Crime Rate')
+hist(sum_cdi$docs_1000, main='Doctor Density')
+hist(sum_cdi$pop_density,main='Population Density' )
+hist(sum_cdi$hsgrad, main='High School Graduate')
+hist(sum_cdi$bagrad, main='Bachelor Graduate')
+hist(sum_cdi$poverty, main='Poverty')
+par(mfrow=c(2,3))
+hist(sum_cdi$unemp, main='Unemployment Rate')
+hist(sum_cdi$pcincome, main='Per capita Income')
+hist(sum_cdi$beds_1000, main='Beds Rate')
+hist(sum_cdi$pop, main='Population')
+hist(sum_cdi$pop18, main='PP aged 18-34')
+hist(sum_cdi$pop65, main='PP aged 65+')
+```
 
 ### Marginal Correlation and Correlation martix
 ```{r}
