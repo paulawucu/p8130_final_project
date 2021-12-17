@@ -1,5 +1,6 @@
 ---
 title: "P8130 Final Project"
+geometry: margin=1.8cm
 output: pdf_document
 ---
 
@@ -11,6 +12,7 @@ output: pdf_document
 ### Conclusions/Discussion  
 
 ```{r, message = FALSE}
+# import necessary datasets
 library(tidyverse)
 library(ggplot2)
 library(GGally)
@@ -45,17 +47,17 @@ cdi %>%
 ```
 
 ## Data cleaning
+First, some normalization for better comparison
 ```{r}
-# some normalization for better comparison
 cdi = 
   cdi %>% 
   mutate(crm_1000 = crimes/pop*1000,  # as indicated by the project prompt
          docs_1000 = docs/pop*1000,  # every 1000 people how many doctors
-         beds_1000 = beds/pop*1000, 
+         beds_1000 = beds/pop*1000, # similar as above
          pop_density = pop/area,  # how many people per square miles
-         northeast = ifelse(region==1, 1, 0),
-         northcentral = ifelse(region==2, 1, 0),
-         south = ifelse(region==3, 1, 0)) %>% 
+         northeast = ifelse(region == 1, 1, 0),  # region as dummy varaible
+         northcentral = ifelse(region == 2, 1, 0),
+         south = ifelse(region == 3, 1, 0)) %>% 
   dplyr::select(-id, -crimes,-area, -docs, -beds, -totalinc, -region)
 ```
 
@@ -82,7 +84,10 @@ cdi_state %>%
   ggplot(aes(x = state, y = crime_rate))+
   geom_hline(yintercept = mean_crm, color = "red")+
   geom_point(aes(color = low_high),size = 3)+
-  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust= 1),
+  ggtitle("Crime Rates in the US States") +
+  labs(y = "Crime Rate Per 1000", x = "States") +
+  theme(plot.title = element_text(hjust = 0.5),
+        axis.text.x = element_text(angle = 90, vjust = 0.5, hjust= 1),
         legend.position = "none")
 ```
 
@@ -111,25 +116,25 @@ boxplot(sum_cdi$pop65, main='PP aged 65+')
 corr_matrix = 
   cdi %>% 
   dplyr::select(-state, -cty, -northeast, -northcentral, -south) %>% 
-  #sum_cdi %>% 
   chart.Correlation(histogram = TRUE, method = "pearson")
 ```
 
 ### Correlation Heatmap
 ```{r}
 cdi %>% 
-  dplyr::select(-state, -cty) %>% 
+  dplyr::select(-state, -cty, -northeast, -northcentral, -south) %>% 
   dplyr::select(crm_1000, everything()) %>% 
   ggcorr(label=TRUE, hjust = 0.9, layout.exp = 2, label_size = 3, label_round = 2)
-#corrplot(cor(cdi_1), type = "upper", diag = FALSE)
 ```
 ## Build Model
+### Full Model
+Let's start with the full model
 ```{r}
 mult_fit = lm(crm_1000 ~ ., data = sum_cdi)
 summary(mult_fit)
 ```
 
-some model diagnostics
+Model diagnostics of the full model
 ```{r}
 plot(mult_fit, which = 1)
 plot(mult_fit, which = 4)
@@ -137,13 +142,16 @@ bc_model = boxcox(mult_fit, lambda = seq(-3, 3, by = 0.25))
 ```
 
 ```{r}
+# get the lambda for the transformation
 lamb = bc_model$x[which.max(bc_model$y)]
 lamb
 ```
 
-~0.5, thus applied square root to the Y
+~0.5, thus we applied square root to the Y. Also we get rid of the influential points. The full model is the basis of other models, thus we choose to filter the outliers out at first.
 ```{r}
-sum_cdi_mod = sum_cdi[-c(1,6),]
+sum_cdi_mod = sum_cdi[-c(1,6),]  # filter out outlier and store it as the new dataset
+
+# check again
 full_trans_fit = lm(sqrt(crm_1000) ~.,data = sum_cdi_mod)
 summary(full_trans_fit)
 check_collinearity(full_trans_fit)
