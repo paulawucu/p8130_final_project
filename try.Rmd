@@ -76,6 +76,21 @@ sum_cdi =
 summary(sum_cdi)
 ```
 
+### Detect Outlier in counties
+```{r}
+## county
+upper = quantile(cdi$crm_1000, 0.75)
+lower = quantile(cdi$crm_1000, 0.25)
+IQR = upper - lower
+cdi %>% 
+  filter(crm_1000 > upper + 1.5*IQR |  # there is no small outliers
+         crm_1000 < lower - 1.5*IQR) %>% 
+  dplyr::select(cty, state, crm_1000) %>%
+  mutate(standard = 1.5*IQR) %>% 
+  knitr::kable(digits = 2)
+
+```
+
 ```{r}
 mean_crm = mean(sum_cdi$crm_1000)
 cdi_state = cdi %>% 
@@ -393,5 +408,8 @@ cv_df %>%
   theme(plot.title = element_text(hjust = 0.5),
         legend.position = "none")  +  # the display of legends is redundant
   labs(y = "RMSE", x = "Models")
+```
+```{r}
+multi_interact %>% broom::tidy() %>% knitr::kable()
 ```
 
