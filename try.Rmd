@@ -225,9 +225,8 @@ the same model as the backward selection, we will not focus on this model from n
 
 Choose backward selection-generated model as the basis since it's with the highest adjusted r-squared. The choice of interaction is somewhat arbitrary, mainly based on the correlation heatmap and also to avoid high collinearity. After a few tries, we added two more interaction terms as the following
 ```{r}
-multi_interact = lm(sqrt(crm_1000) ~ pop + pop18 + pop65 + hsgrad + bagrad + poverty + unemp 
-                    + pcincome + docs_1000 + beds_1000 + pop_density + northeast + northcentral 
-                    + south + pop*bagrad, data = sum_cdi_mod)
+multi_interact = lm(sqrt(crm_1000) ~ pop + pop18 + hsgrad + bagrad + poverty + unemp+ pcincome + beds_1000 
+                    + pop_density + northeast + northcentral + south + pop*bagrad, data = sum_cdi_mod)
 summary(multi_interact)
 ```
 
@@ -343,7 +342,7 @@ rbind(a_row(full_trans_fit),
 set.seed(1)
   
 cv_df = 
-  crossv_kfold(sum_cdi_mod, k=5) %>%   # k-fold = 5
+  crossv_kfold(sum_cdi_mod, k=10) %>%   # k-fold = 5
   mutate(
     train = map(train, as_tibble),
     test = map(test, as_tibble)
@@ -354,10 +353,10 @@ cv_df =
     full_fit = map(.x = train, ~lm(sqrt(crm_1000) ~., data = .x)),
     back_fit = map(.x = train, ~lm(sqrt(crm_1000) ~ pop + pop18 + hsgrad + bagrad + poverty + 
                                      unemp+ pcincome + beds_1000 + pop_density + northeast + 
-                                     northcentral + south, data = .x)),
-    interact_fit = map(.x = train, ~lm(sqrt(crm_1000) ~ pop + pop18 + pop65 + hsgrad + bagrad + poverty 
-                                       + unemp + pcincome + docs_1000 + beds_1000 + pop_density 
-                                       + northeast + northcentral + south + pop*bagrad + bagrad*pcincome, data = .x)),
+                                     northcentral + south,data = .x)),
+    interact_fit = map(.x = train, ~lm(sqrt(crm_1000) ~ pop + pop18 + hsgrad + bagrad + poverty + unemp+ pcincome 
+                                       + beds_1000 + pop_density + northeast + 
+                                         northcentral + south + pop*bagrad, data = .x)),
     adj_fit = map(.x = train, ~lm(sqrt(crm_1000) ~ pop + pop18 + hsgrad + bagrad + poverty + unemp +
                                     pcincome + beds_1000 + pop_density + northeast + northcentral + south, data = .x)),
     cp_fit = map(.x = train, ~lm(sqrt(crm_1000) ~ pop + pop18 + bagrad + poverty + pcincome +
